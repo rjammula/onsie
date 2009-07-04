@@ -1,0 +1,88 @@
+<project name="onsie"  basedir="." default="main">
+
+  <!-- General configuration -->
+  <property name="src.dir" value="src" />
+  <property name="resource.dir" value="resources" />
+  <property name="build.dir" value="build" />
+  <property name="classes.dir" value="${build.dir}/classes" />
+  <property name="jar.dir" value="${build.dir}/jar" />
+
+  <!-- Server -->
+  <property name="server.resource.dir" value="${resource.dir}/server" />
+  <property name="server.build.dir" value="${build.dir}/server" />
+  <property name="server.classes.dir" value="${server.build.dir}/classes" />
+  <property name="server.jar.dir" value="${server.build.dir}/jar" />
+  <property name="server.main-class" value="com.jgrocho.uno.ServerTest" />
+  <property name="server.main-class.path" value="com/jgrocho/uno/ServerTest.java" />
+
+  <target name="server-clean">
+    <delete dir="${server.build.dir}" />
+  </target>
+
+  <target name="server-compile">
+    <mkdir dir="${server.classes.dir}" />
+    <javac srcdir="${src.dir}" destdir="${server.classes.dir}">
+      <include name="${server.main-class.path}" />
+    </javac>
+  </target>
+
+  <target name="server-jar" depends="server-compile">
+    <mkdir dir="${server.jar.dir}" />
+    <jar destfile="${server.jar.dir}/Server.jar" 
+	 basedir="${server.classes.dir}">
+      <manifest>
+	<attribute name="Main-Class" value="${server.main-class}" />
+      </manifest>
+      <fileset dir="${server.resource.dir}" />
+    </jar>
+  </target>
+
+  <target name="server-main" depends="server-clean,server-jar" />
+
+
+
+  <!-- Client -->
+  <property name="client.resource.dir" value="${resource.dir}/client" />
+  <property name="client.build.dir" value="${build.dir}/client" />
+  <property name="client.classes.dir" value="${client.build.dir}/classes" />
+  <property name="client.jar.dir" value="${client.build.dir}/jar" />
+  <property name="client.main-class" value="com.jgrocho.uno.ClientTest" />
+  <property name="client.main-class.path" value="com/jgrocho/uno/ClientTest.java" />
+
+  <target name="client-clean">
+    <delete dir="${client.build.dir}" />
+  </target>
+
+  <target name="client-compile">
+    <mkdir dir="${client.classes.dir}" />
+    <javac srcdir="${src.dir}" destdir="${client.classes.dir}">
+      <include name="${client.main-class.path}" />
+    </javac>
+  </target>
+
+  <target name="client-jar" depends="client-compile">
+    <mkdir dir="${client.jar.dir}" />
+    <jar destfile="${client.jar.dir}/Client.jar" 
+	 basedir="${client.classes.dir}">
+      <manifest>
+	<attribute name="Main-Class" value="${client.main-class}" />
+      </manifest>
+      <fileset dir="${client.resource.dir}" />
+    </jar>
+  </target>
+
+  <target name="client-main" depends="client-clean,client-jar" />
+
+
+  <!-- General -->
+  <target name="clean" depends="server-clean,client-clean">
+    <delete dir="${build.dir}" />
+  </target>
+
+  <target name="compile" depends="server-compile,client-compile" />
+
+  <target name="jar" depends="server-jar,client-jar" />
+
+  <target name="main" depends="clean,jar" />
+
+</project>
