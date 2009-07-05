@@ -1,5 +1,18 @@
 <project name="onsie"  basedir="." default="main">
 
+  <!-- SVN revision finder -->
+  <exec outputproperty="build.current.revision" executable="svnversion">
+    <arg line="-n -c" />
+    <redirector>
+      <outputfilterchain>
+        <tokenfilter>
+          <replaceregex pattern="^(?:[0-9]*:)?([0-9]*)[MPS]{0,4}" 
+			replace="\1" flags="g"/>
+        </tokenfilter>
+      </outputfilterchain>
+    </redirector>
+  </exec>
+
   <!-- General configuration -->
   <property name="src.dir" value="src" />
   <property name="resource.dir" value="resources" />
@@ -28,7 +41,7 @@
 
   <target name="server-jar" depends="server-compile">
     <mkdir dir="${server.jar.dir}" />
-    <jar destfile="${server.jar.dir}/Server.jar" 
+    <jar destfile="${server.jar.dir}/Server-r${build.current.revision}.jar" 
 	 basedir="${server.classes.dir}">
       <manifest>
 	<attribute name="Main-Class" value="${server.main-class}" />
@@ -62,7 +75,7 @@
 
   <target name="client-jar" depends="client-compile">
     <mkdir dir="${client.jar.dir}" />
-    <jar destfile="${client.jar.dir}/Client.jar" 
+    <jar destfile="${client.jar.dir}/Client-r${build.current.revision}.jar" 
 	 basedir="${client.classes.dir}">
       <manifest>
 	<attribute name="Main-Class" value="${client.main-class}" />
