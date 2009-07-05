@@ -193,36 +193,10 @@ public class Client {
 
     public boolean receivePlaying() {
 	return receiveOptions(Protocol.Playing, Protocol.End);
-	/*
-	boolean playing = null;
-
-	while (playing == null) {
-	    String protocol = readSocketInput();
-	    if (protocol.equals(Protocol.Playing))
-		playing = true;
-	    else if (protocol.equals(Protocol.End))
-		playing = false;
-	}
-
-	return playing;
-	*/
     }
 
     public boolean receiveTurn() {
 	return receiveOptions(Protocol.Turn, Protocol.OtherTurn);
-	/*
-	boolean turn = null;
-
-	while (turn == null) {
-	    String protocol = readSocketInput();
-	    if (protocol.equals(Protocol.Turn))
-		turn = true;
-	    else if (protocol.equals(Protocol.OtherTurn))
-		turn = false;
-	}
-
-	return turn;
-	*/
     }
 
     public boolean receiveDraw() {
@@ -239,6 +213,10 @@ public class Client {
 
     public boolean receivePlayer() {
 	return receiveOptions(Protocol.Player, Protocol.NoPlayer);
+    }
+
+    public boolean receiveUser() {
+	return receiveOptions(Protocol.User, Protocol.NoUser);
     }
 
 }

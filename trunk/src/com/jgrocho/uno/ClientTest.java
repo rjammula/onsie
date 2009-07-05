@@ -28,8 +28,11 @@ public class ClientTest {
 
     public static void main(String[] args) {
 	String host = "localhost";
-	if (args.length == 1)
+	if (args.length >= 1)
 	    host = args[0];
+	String username = "default user" + Math.random();
+	if (args.length >= 2)
+	    username = args[1];
 
 	Scanner sc = new Scanner(System.in);
 
@@ -37,6 +40,9 @@ public class ClientTest {
 	client.connect();
 
 	client.send(Protocol.Ready);
+
+	client.send(Protocol.Username);
+	client.sendObject(username);
 
 	client.receive(Protocol.Hand);
 	Hand hand = (Hand) client.receiveObject();
@@ -54,12 +60,51 @@ public class ClientTest {
 	client.receive(Protocol.Start);
 	System.out.println("Game starting");
 
+	Opponents opponents = new Opponents();
+	while (client.receiveUser()) {
+	    client.receive(Protocol.Username);
+	    String name = (String) client.receiveObject();
+
+	    client.receive(Protocol.Turn);
+	    int position = ((Integer) client.receiveObject()).intValue();
+
+	    client.receive(Protocol.CardCount);
+	    int cards = ((Integer) client.receiveObject()).intValue();
+
+	    Opponent opponent = new Opponent(name, position, cards);
+
+	    opponents.put(position, opponent);
+	}
+
 	while (client.receivePlaying()) {
 	    if (client.receiveTurn()) {
 		Card cardPlayed = null;
 		
-		System.out.println("Player " + turn);
+		System.out.println("Player " + turn + " " + username);
 		System.out.println("Your Turn");
+
+		while (client.receivePlayer()) {
+		    client.receive(Protocol.Turn);
+		    System.out.println("got turn");
+		    int otherPlayer =
+			((Integer) client.receiveObject()).intValue();
+
+		    client.receive(Protocol.CardCount);
+		    int cardCount = 
+			((Integer) client.receiveObject()).intValue();
+
+		    Opponent opponent = opponents.get(otherPlayer);
+		    opponent.setCards(cardCount);
+		}
+
+		for (java.util.Map.Entry<Integer, Opponent> entry : 
+			 opponents.entrySet()) {
+		    Opponent opponent = entry.getValue();
+		    System.out.println("Player " + opponent.getPosition() +
+				       " " + opponent.getName() +
+				       " has " + opponent.getCards() + 
+				       " cards");
+		}
 		
 		while (client.receiveDraw()) {
 		    System.out.print("Drawing card...");
@@ -161,13 +206,25 @@ public class ClientTest {
 		hand = (Hand) client.receiveObject();
 		*/
 		while (client.receivePlayer()) {
+		    client.receive(Protocol.Turn);
 		    int otherPlayer =
 			((Integer) client.receiveObject()).intValue();
+
 		    client.receive(Protocol.CardCount);
 		    int cardCount = 
 			((Integer) client.receiveObject()).intValue();
-		    System.out.print("Player " + otherPlayer);
-		    System.out.println(" has " + cardCount + " cards");
+
+		    Opponent opponent = opponents.get(otherPlayer);
+		    opponent.setCards(cardCount);
+		}
+
+		for (java.util.Map.Entry<Integer, Opponent> entry : 
+			 opponents.entrySet()) {
+		    Opponent opponent = entry.getValue();
+		    System.out.println("Player " + opponent.getPosition() +
+				       " " + opponent.getName() +
+				       " has " + opponent.getCards() + 
+				       " cards");
 		}
 
 		client.receive(Protocol.Discard);
