@@ -36,6 +36,7 @@
   <property name="src.dir" value="src" />
   <property name="resource.dir" value="resources" />
   <property name="build.dir" value="build" />
+  <property name="debug.dir" value="debug" />
   <property name="classes.dir" value="${build.dir}/classes" />
   <property name="jar.dir" value="${build.dir}/jar" />
 
@@ -115,6 +116,15 @@
   <!-- General -->
   <target name="clean" depends="server-clean,client-clean">
     <delete dir="${build.dir}" />
+    <delete dir="${debug.dir}" />
+  </target>
+
+  <target name="debug" depends="clean">
+    <mkdir dir="${debug.dir}" />
+    <copy  todir="${debug.dir}">
+      <fileset dir="${src.dir}" />
+    </copy>
+    <javac srcdir="${debug.dir}" debug="true" />
   </target>
 
   <target name="compile" depends="server-compile,client-compile" />
