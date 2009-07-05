@@ -78,8 +78,9 @@
   <property name="client.build.dir" value="${build.dir}/client" />
   <property name="client.classes.dir" value="${client.build.dir}/classes" />
   <property name="client.jar.dir" value="${client.build.dir}/jar" />
-  <property name="client.main-class" value="com.jgrocho.uno.ClientTest" />
-  <property name="client.main-class.path" value="com/jgrocho/uno/ClientTest.java" />
+  <property name="client.jar.name" value="${client.jar.dir}/Client-r${build.current.revision}.jar" />
+  <property name="client.main-class" value="com.jgrocho.uno.ClientGUI" />
+  <property name="client.main-class.path" value="com/jgrocho/uno/ClientGUI.java" />
 
   <target name="client-clean">
     <delete dir="${client.build.dir}" />
@@ -94,7 +95,7 @@
 
   <target name="client-jar" depends="client-compile">
     <mkdir dir="${client.jar.dir}" />
-    <jar destfile="${client.jar.dir}/Client-r${build.current.revision}.jar" 
+    <jar destfile="${client.jar.name}" 
 	 basedir="${client.classes.dir}">
       <manifest>
 	<attribute name="Main-Class" value="${client.main-class}" />
@@ -103,8 +104,13 @@
     </jar>
   </target>
 
-  <target name="client-main" depends="client-clean,client-jar" />
+  <target name="client-run" depends="client-jar">
+    <java jar="${client.jar.name}" fork="true" />
+  </target>
 
+  <target name="client-clean-build" depends="client-clean,client-jar" />
+
+  <target name="client-main" depends="client-clean,client-run" />
 
   <!-- General -->
   <target name="clean" depends="server-clean,client-clean">
@@ -115,6 +121,8 @@
 
   <target name="jar" depends="server-jar,client-jar" />
 
+  <target name="run" depends="client-run" />
+  
   <target name="main" depends="clean,jar" />
 
 </project>
