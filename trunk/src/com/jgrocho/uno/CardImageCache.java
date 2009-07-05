@@ -49,7 +49,7 @@ public class CardImageCache {
     }
 
     private static ImageIcon loadImageIcon(Card card) {
-	String separator = System.getProperty("path.separator");
+	String separator = System.getProperty("file.separator");
 	String basePath = "images" + separator + 
 	    "mini" + separator + 
 	    card.getColor().name() + separator + 
