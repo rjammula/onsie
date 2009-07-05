@@ -49,9 +49,10 @@ public class CardImageCache {
     }
 
     private static ImageIcon loadImageIcon(Card card) {
-	String basePath = "images" + File.separator + 
-	    "mini" + File.separator + 
-	    card.getColor().name() + File.separator + 
+	String separator = System.getProperty("path.separator");
+	String basePath = "images" + separator + 
+	    "mini" + separator + 
+	    card.getColor().name() + separator + 
 	    card.getNumber().name() + ".png";
 	java.net.URL imageURL = CardImageCache.class.getResource(basePath);
 
