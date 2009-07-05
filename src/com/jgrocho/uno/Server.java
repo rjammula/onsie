@@ -99,8 +99,25 @@ public class Server implements ServerThreadListener {
 
 	game.start();
 
-	for (ServerThread client : clients)
+	for (ServerThread client : clients) {
 	    client.send(Protocol.Start);
+
+	    for (ServerThread otherClient : clients) {
+		if (client != otherClient) {
+		    client.send(Protocol.User);
+
+		    client.send(Protocol.Username);
+		    client.sendObject(otherClient.getUsername());
+
+		    client.send(Protocol.Turn);
+		    client.sendObject(otherClient.getPosition());
+
+		    client.send(Protocol.CardCount);
+		    client.sendObject(game.getHand(otherClient.getPosition()).size());
+		}
+	    }
+	    client.send(Protocol.NoUser);
+	}
     }
 
     public void gameOver() {
@@ -148,38 +165,51 @@ public class Server implements ServerThreadListener {
     }
 
     public void updateClients() {
+	updateCurrentPlayer();
+	
 	for (ServerThread client : clients) {
 	    client.send(Protocol.Playing);
-
-	    if (client.getPosition() == game.getCurrentPlayerNumber())
-		updateCurrentPlayer();
-	    else {
+	    
+	    if (client.getPosition() != game.getCurrentPlayerNumber()) {
 		client.send(Protocol.OtherTurn);
-		/*
-		client.send(Protocol.Hand);
-		client.sendObject(game.getHand(client.getPosition()).copy());
-		*/
+		
 		for (ServerThread otherClient : clients) {
 		    if (otherClient.getPosition() != client.getPosition()) {
 			client.send(Protocol.Player);
+			
+			client.send(Protocol.Turn);
 			client.sendObject(otherClient.getPosition());
-
+			
 			client.send(Protocol.CardCount);
 			client.sendObject(game.getHand(otherClient.getPosition()).size());
 		    }
 		}
 		client.send(Protocol.NoPlayer);
-
+		
 		client.send(Protocol.Discard);
 		client.sendObject(game.topDiscard());
 	    }
 	}
     }
-
+    
     public void updateCurrentPlayer() {
 	ServerThread client = clients.get(game.getCurrentPlayerNumber());
 
+	client.send(Protocol.Playing);
 	client.send(Protocol.Turn);
+
+	for (ServerThread otherClient : clients) {
+	    if (otherClient.getPosition() != client.getPosition()) {
+		client.send(Protocol.Player);
+
+		client.send(Protocol.Turn);
+		client.sendObject(otherClient.getPosition());
+
+		client.send(Protocol.CardCount);
+		client.sendObject(game.getHand(otherClient.getPosition()).size());
+	    }
+	}
+	client.send(Protocol.NoPlayer);
 
 	if (game.topDiscard().getNumber() == Card.Number.DRAW_TWO) {
 	    Card card = game.drawCard();

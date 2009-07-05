@@ -31,7 +31,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import java.util.Iterator;
 
-class ServerThread extends Thread {
+class ServerThread extends Thread implements ServerThreadListener {
+
+    private enum Awaiting { NONE, USERNAME };
 
     private List<ServerThreadListener> listeners;
     private Queue<Message> messages;
@@ -40,7 +42,10 @@ class ServerThread extends Thread {
     private boolean connected;
     private boolean clientReady;
     private Socket socket;
+
+    private Awaiting awaiting;
     private int position;
+    private String username;
 
     /*
     private PrintWriter socketOut;
@@ -91,6 +96,8 @@ class ServerThread extends Thread {
 		connected = false;
 	    }
 	}
+
+	addListener(this);
     }
 
     public void run() {
@@ -177,6 +184,9 @@ class ServerThread extends Thread {
 
 	clientReady = true;
 	receive(Protocol.Ready);
+
+	receive(Protocol.Username);
+	receiveObject();
 
 	send(Protocol.Hand);
 	sendObject(hand);
@@ -268,6 +278,10 @@ class ServerThread extends Thread {
 	return position;
     }
 
+    public String getUsername() {
+	return username;
+    }
+
     public void addListener(ServerThreadListener listener) {
 	listeners.add(listener);
     }
@@ -290,5 +304,19 @@ class ServerThread extends Thread {
 			   socket.getInetAddress() + " to " +
 			   this.getName());
 
+    }
+
+    public void messageReceived(ReceiveEvent event) {
+	Message message = event.getMessage();
+	if (message.getType() == Message.Type.PROTOCOL) {
+	    String protocol = message.getProtocol();
+	    if (protocol.equals(Protocol.Username))
+		awaiting = Awaiting.USERNAME;
+	} else if (message.getType() == Message.Type.OBJECT) {
+	    if (awaiting == Awaiting.USERNAME) {
+		username = (String) message.getObject();
+		awaiting = Awaiting.NONE;
+	    }
+	}
     }
 }

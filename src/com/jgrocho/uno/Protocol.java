@@ -44,5 +44,8 @@ public class Protocol {
     public static final String Loser       = "loser";
     public static final String Player      = "player";
     public static final String NoPlayer    = "no player";
+    public static final String User        = "user";
+    public static final String NoUser      = "no user";
+    public static final String Username    = "username";
     public static final String CardCount   = "card count";
 }
