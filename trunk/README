@@ -1,0 +1,15 @@
+Copyright 2009 Jonathan Grochowski
+
+onsie is a simple networked version of the card game Uno!
+
+Requirements to build:
+  # Java Development Kit (JDK) 1.6.0_14 (may work other versions, untested)
+  # Ant 1.7.1 (to use the included build.xml Could be built by hand without)
+
+Requirements to run:
+  # Java Runtime Environment (JRE) 1.6.0 or higher (may work with other versions, untested)
+
+
+To run the server: `java -jar Server-rXX.jar [NUM]` where `[NUM]` is the number of players (defaults to 4).
+
+To run the client: `java -jar Client-rXX.jar [HOST]` where `[HOST]` is the IP address or name of the server (defaults to `localhost`).
