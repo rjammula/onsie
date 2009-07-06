@@ -119,7 +119,7 @@
     <delete dir="${debug.dir}" />
   </target>
 
-  <target name="debug" depends="clean">
+  <target name="debug">
     <mkdir dir="${debug.dir}" />
     <copy  todir="${debug.dir}">
       <fileset dir="${src.dir}" />
