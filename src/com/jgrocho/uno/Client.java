@@ -23,18 +23,22 @@ package com.jgrocho.uno;
 import java.io.*;
 import java.net.*;
 
+import java.util.List;
+import java.util.ArrayList;
+
 public class Client {
 
     private String host;
     private int port;
-    private boolean connected;
 
+    private Hand hand;
+    private int turn;
+
+    private boolean connected;
     private Socket socket;
 
-    /*
-    private PrintWriter socketOut;
-    private BufferedReader socketIn;
-    */
+    private List<ClientEventListener> listeners;
+
     private ObjectOutputStream socketObjOut;
     private ObjectInputStream socketObjIn;
 
@@ -50,22 +54,18 @@ public class Client {
 	this.host = host;
 	this.port = port;
 
-	/*
-	socketOut = null;
-	socketIn = null;
-	*/
+	connected = false;
+
 	socketObjOut = null;
 	socketObjIn = null;
+
+	listeners = new ArrayList<ClientEventListener>();
     }
 
-    public void connect() {
+    public boolean connect() {
 	try {
 	    socket = new Socket(host, port);
 
-	    /*
-	    socketOut = new PrintWriter(socket.getOutputStream());
-	    socketIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-	    */
 	    socketObjOut = new ObjectOutputStream(socket.getOutputStream());
 	    socketObjIn = new ObjectInputStream(socket.getInputStream());
 
@@ -74,16 +74,18 @@ public class Client {
 			       socket.getInetAddress());
 
 	} catch (IOException eStream) {
-	    System.err.println("Error creating IO streams.");
-	    eStream.printStackTrace();
+	    //System.err.println("Error creating IO streams.");
+	    //eStream.printStackTrace();
 	    try {
 		socket.close();
 	    } catch (IOException eSocket) {
-		System.out.println("Error closing socket.");
-		eSocket.printStackTrace();
+		//System.out.println("Error closing socket.");
+		//eSocket.printStackTrace();
 	    } finally {
 		connected = false;
 	    }
+	} finally {
+	    return connected;
 	}
     }
 
@@ -96,14 +98,6 @@ public class Client {
 	    e.printStackTrace();
 	    connected = false;
 	}
-	/*
-	socketOut.println(protocol);
-	socketOut.flush();
-	if (socketOut.checkError()) {
-	    System.out.println("Error sending protocol: " + protocol);
-	    connected = false;
-	}
-	*/
     }
 
     public void sendObject(Object object) {
@@ -117,26 +111,10 @@ public class Client {
 	}
     }
 
-    public String receive(String protocol) {
-	String line = "";
-
-	while (! line.equals(protocol))
-	    line = readSocketInput();
-
-	return line;
-    }
-
-    public Object receiveObject() {
-	Object object = readSocketObjInput();
-
-	return object;
-    }
-
     private String readSocketInput() {
 	String line = null;
 
 	try {
-	    //line = socketIn.readLine();
 	    line = (String) socketObjIn.readObject();
         } catch (SocketException e) {
 	    System.err.println("Socket Error.");
@@ -181,42 +159,102 @@ public class Client {
 	return object;
     }
 
-    public boolean receiveOptions(String trueProtocol, String falseProtocol) {
+    /*
+    public String receive(String protocol) {
+	String line = "";
+
+	while (! line.equals(protocol))
+	    line = readSocketInput();
+
+	return line;
+    }
+
+    public Object receiveObject() {
+	Object object = readSocketObjInput();
+
+	return object;
+    }
+    */
+
+    public void receive(String protocol) {
+	String line = "";
+
+	while (! line.equals(protocol))
+	    line = readSocketInput();
+
+	fireReceived(line);
+    }
+
+    public void receiveObject() {
+	Object object = readSocketObjInput();
+
+	fireObjectReceived(object);
+    }
+
+    public void receiveOptions(String trueProtocol, String falseProtocol) {
 	while (true) {
 	    String protocol = readSocketInput();
 	    if (protocol.equals(trueProtocol))
-		return true;
+		fireReceived(trueProtocol);
 	    else if (protocol.equals(falseProtocol))
-		return false;
+		fireReceived(falseProtocol);
 	}
     }
 
-    public boolean receivePlaying() {
-	return receiveOptions(Protocol.Playing, Protocol.End);
+    public void receivePlaying() {
+	receiveOptions(Protocol.Playing, Protocol.End);
     }
 
-    public boolean receiveTurn() {
-	return receiveOptions(Protocol.Turn, Protocol.OtherTurn);
+    public void receiveTurn() {
+	receiveOptions(Protocol.Turn, Protocol.OtherTurn);
+    }
+    
+    public void receiveDraw() {
+	receiveOptions(Protocol.Draw, Protocol.NoDraw);
     }
 
-    public boolean receiveDraw() {
-	return receiveOptions(Protocol.Draw, Protocol.NoDraw);
+    public void receiveCardPlayed() {
+	receiveOptions(Protocol.Success, Protocol.RequestCard);
     }
 
-    public boolean receiveCardPlayed() {
-	return receiveOptions(Protocol.Success, Protocol.RequestCard);
+    public void receiveWinner() {
+	receiveOptions(Protocol.Winner, Protocol.Loser);
     }
 
-    public boolean receiveWinner() {
-	return receiveOptions(Protocol.Winner, Protocol.Loser);
+    public void receivePlayer() {
+	receiveOptions(Protocol.Player, Protocol.NoPlayer);
     }
 
-    public boolean receivePlayer() {
-	return receiveOptions(Protocol.Player, Protocol.NoPlayer);
+    public void receiveUser() {
+	receiveOptions(Protocol.User, Protocol.NoUser);
     }
 
-    public boolean receiveUser() {
-	return receiveOptions(Protocol.User, Protocol.NoUser);
+    public Hand getHand() {
+	return hand;
+    }
+
+    public int getTurn() {
+	return turn;
+    }
+
+    public void addClientEventListener(ClientEventListener listener) {
+	listeners.add(listener);
+    }
+
+    public void removeClientEventListener(ClientEventListener listener) {
+	listeners.remove(listener);
+    }
+
+    private void fireReceived(String protocol) {
+	ClientEvent event = new ClientEvent(ClientEvent.PROTOCOL, protocol);
+	for (ClientEventListener listener : listeners)
+	    listener.receiveCompleted(event);
+    }
+
+    private void fireObjectReceived(Object object) {
+	ClientEvent event = new ClientEvent(ClientEvent.OBJECT, object);
+	for (ClientEventListener listener : listeners)
+	    listener.receiveObjectCompleted(event);
     }
 
 }

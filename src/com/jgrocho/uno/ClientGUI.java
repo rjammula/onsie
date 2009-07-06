@@ -24,24 +24,38 @@ import java.awt.*;
 import java.awt.event.*;
 
 import javax.swing.*;
+import javax.swing.event.*;
 
 public class ClientGUI extends JFrame {
+
+    private JFrame frame;
 
     private Action connectAction;
     private Action disconnectAction;
     private Action exitAction;
 
-    private CardActionListener cardActionListener;
+    private CardPanel handPanel;
 
+    private CardActionHandler cardActionHandler;
+    private ClientEventHandler clientEventHandler;
+
+    private Client client;
     private String host;
     private int port;
 
+    private String username;
+    private Hand hand;
+    private int turn;
+
     public ClientGUI() {
-	connectAction = new ConnectAction(this);
+	frame = this;
+
+	connectAction = new ConnectAction();
 	disconnectAction = new DisconnectAction();
 	exitAction = new ExitAction();
 
-	cardActionListener = new CardActionListener();
+	cardActionHandler = new CardActionHandler();
+	clientEventHandler = new ClientEventHandler();
 
 	JMenuItem connectMenuItem = new JMenuItem(connectAction);
 	JMenuItem disconnectMenuItem = new JMenuItem(disconnectAction);
@@ -59,11 +73,9 @@ public class ClientGUI extends JFrame {
 
 	Color bgColor = new Color(68, 137, 56);
 
-	CardPanel handPanel = new CardPanel();
+	handPanel = new CardPanel();
 	handPanel.setBackground(bgColor);
-	Hand hand = new Game().getCurrentHand();
-	handPanel.setCards(hand.getAll());
-
+	
 	JPanel boardPanel = new JPanel();
 	boardPanel.setBackground(bgColor);
 	boardPanel.add(handPanel);
@@ -77,17 +89,57 @@ public class ClientGUI extends JFrame {
 	setLocationRelativeTo(null);
     }
 
+    private void connect() {
+	client = new Client(host, port);
+	client.addClientEventListener(clientEventHandler);
+
+	if (! client.connect()) {
+	    JOptionPane.showMessageDialog(frame, 
+					  "Could not connect to " + host,
+					  "Connection Error",
+					  JOptionPane.ERROR_MESSAGE);
+	} else {
+	    new Thread() {
+		public void run() {
+		    setup();
+		}
+	    }.start();
+	}
+    }
+    
+    private void setup() {
+	client.send(Protocol.Ready);
+
+	client.send(Protocol.Username);
+	client.send(username);
+
+	client.receive(Protocol.Hand);
+	client.receiveObject();
+
+	client.receive(Protocol.Turn);
+	client.receiveObject();
+    }
+
+    private void setHand(Hand hand) {
+	this.hand = hand;
+	handPanel.setCards(hand.getAll());
+	repaint();
+    }
+
     private class ConnectAction extends AbstractAction {
 	private ConnectDialog connectDialog;
 
-	public ConnectAction(JFrame owner) {
+	public ConnectAction() {
 	    super("Connect");
 
-	    connectDialog = new ConnectDialog(owner);
+	    connectDialog = new ConnectDialog();
 	    connectDialog.acceptButton.addActionListener(new ActionListener() {
 		    public void actionPerformed(ActionEvent event) {
 			host = connectDialog.getServer();
+			username = connectDialog.getUsername();
 			port = connectDialog.getPort();
+
+			connect();
 		    }
 		});
 	}
@@ -99,14 +151,24 @@ public class ClientGUI extends JFrame {
 	private class ConnectDialog extends JDialog {
 
 	    private JTextField serverTextField;
+	    private JTextField usernameTextField;
 	    private SpinnerNumberModel portModel;
 	    private JSpinner portSpinner;
 	    private JButton acceptButton;
 
-	    public ConnectDialog(JFrame owner) {
-		super(owner, "Connect", true);
+	    public ConnectDialog() {
+		super(frame, "Connect", true);
+
+		TextFieldDocumentHandler documentHandler = 
+		    new TextFieldDocumentHandler();
 
 		serverTextField = new JTextField(10);
+		serverTextField.getDocument()
+		    .addDocumentListener(documentHandler);
+
+		usernameTextField = new JTextField(10);
+		usernameTextField.getDocument()
+		    .addDocumentListener(documentHandler);
 
 		portModel = new SpinnerNumberModel(Protocol.PORT,
 						   1024, 65535, 1);
@@ -119,10 +181,14 @@ public class ClientGUI extends JFrame {
 		JLabel serverLabel = new JLabel("Server");
 		serverLabel.setLabelFor(serverTextField);
 
+		JLabel usernameLabel = new JLabel("Username");
+		usernameLabel.setLabelFor(usernameTextField);
+
 		JLabel portLabel = new JLabel("Port");
 		portLabel.setLabelFor(portSpinner);
 
 		acceptButton = new JButton("Connect");
+		acceptButton.setEnabled(false);
 		acceptButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent event) {
 			    if (!getServer().equals(""))
@@ -148,9 +214,11 @@ public class ClientGUI extends JFrame {
 					  layout.createSequentialGroup()
 					  .addGroup(layout.createParallelGroup(GroupLayout.Alignment.TRAILING)
 						    .addComponent(serverLabel)
+						    .addComponent(usernameLabel)
 						    .addComponent(portLabel))
 					  .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
 						    .addComponent(serverTextField)
+						    .addComponent(usernameTextField)
 						    .addComponent(portSpinner)
 						    .addGroup(layout.createSequentialGroup()
 							      .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -163,6 +231,9 @@ public class ClientGUI extends JFrame {
 						  .addComponent(serverLabel)
 						  .addComponent(serverTextField))
 					.addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+						  .addComponent(usernameLabel)
+						  .addComponent(usernameTextField))
+					.addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
 						  .addComponent(portLabel)
 						  .addComponent(portSpinner))
 					.addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
@@ -173,15 +244,61 @@ public class ClientGUI extends JFrame {
 
 		pack();
 		setResizable(false);
-		setLocationRelativeTo(owner);
+		setLocationRelativeTo(frame);
 	    }
 
 	    public String getServer() {
 		return serverTextField.getText();
 	    }
 
+	    public String getUsername() {
+		return usernameTextField.getText();
+	    }
+
 	    public int getPort() {
 		return ((Integer) portModel.getNumber()).intValue();
+	    }
+
+	    private class TextFieldDocumentHandler implements DocumentListener {
+		private boolean serverSet;
+		private boolean usernameSet;
+
+		public void insertUpdate(DocumentEvent documentEvent) {
+		    if (! getServer().equals(""))
+			serverSet = true;
+		    else
+			serverSet = false;
+
+		    if (! getUsername().equals(""))
+			usernameSet = true;
+		    else
+			usernameSet = false;
+
+		    if (serverSet && usernameSet)
+			acceptButton.setEnabled(true);
+		    else
+			acceptButton.setEnabled(false);
+		}
+
+		public void removeUpdate(DocumentEvent documentEvent) {
+		    if (! getServer().equals(""))
+			serverSet = true;
+		    else
+			serverSet = false;
+
+		    if (! getUsername().equals(""))
+			usernameSet = true;
+		    else
+			usernameSet = false;
+
+		    if (serverSet && usernameSet)
+			acceptButton.setEnabled(true);
+		    else
+			acceptButton.setEnabled(false);
+		}
+
+		public void changedUpdate(DocumentEvent documentEvent) {
+		}
 	    }
 
 	    private class WindowHandler extends WindowAdapter {
@@ -223,14 +340,16 @@ public class ClientGUI extends JFrame {
 	}
 
 	public void setCards(Card[] cards) {
+	    removeAll();
 	    for (int i = 0; i < cards.length; ++i) {
 		Card card = cards[i];
 		CardButton cardButton = 
 		    new CardButton(CardImageCache.getImageIcon(card));
 		cardButton.setActionCommand(i + "");
-		cardButton.addActionListener(cardActionListener);
+		cardButton.addActionListener(cardActionHandler);
 		add(cardButton);
 	    }
+	    revalidate();
 	}
 
 	private class CardButton extends JButton implements MouseListener {
@@ -276,9 +395,29 @@ public class ClientGUI extends JFrame {
 	}
     }
 
-    private class CardActionListener implements ActionListener {
+    private class CardActionHandler implements ActionListener {
 	public void actionPerformed(ActionEvent event) {
 	    System.out.println(event.getActionCommand());;
+	}
+    }
+
+    private class ClientEventHandler implements ClientEventListener {
+	private String awaiting;
+
+	public void receiveCompleted(ClientEvent event) {
+	    awaiting = (String) event.getContent();
+	    System.out.println(awaiting);
+	}
+
+	public void receiveObjectCompleted(final ClientEvent event) {
+	    if (awaiting.equals(Protocol.Hand))
+		new Thread() {
+		    public void run() {
+			setHand((Hand) event.getContent());
+		    }
+		}.start();
+	    else if (awaiting.equals(Protocol.Turn))
+		turn = ((Integer) event.getContent()).intValue();
 	}
     }
 

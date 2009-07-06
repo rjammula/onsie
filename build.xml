@@ -124,7 +124,9 @@
     <copy  todir="${debug.dir}">
       <fileset dir="${src.dir}" />
     </copy>
-    <javac srcdir="${debug.dir}" debug="true" />
+    <javac srcdir="${debug.dir}" debug="true">
+      <exclude name="**/ClientTest.java" />
+    </javac>
   </target>
 
   <target name="compile" depends="server-compile,client-compile" />

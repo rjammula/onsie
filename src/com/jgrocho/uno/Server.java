@@ -168,9 +168,9 @@ public class Server implements ServerThreadListener {
 	updateCurrentPlayer();
 	
 	for (ServerThread client : clients) {
-	    client.send(Protocol.Playing);
-	    
 	    if (client.getPosition() != game.getCurrentPlayerNumber()) {
+		client.send(Protocol.Playing);
+	    
 		client.send(Protocol.OtherTurn);
 		
 		for (ServerThread otherClient : clients) {
