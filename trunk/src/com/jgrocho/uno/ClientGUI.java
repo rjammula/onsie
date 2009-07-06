@@ -33,10 +33,10 @@ public class ClientGUI extends JFrame {
     private Action connectAction;
     private Action disconnectAction;
     private Action exitAction;
+    private Action playAction;
 
     private CardPanel handPanel;
 
-    private CardActionHandler cardActionHandler;
     private ClientEventHandler clientEventHandler;
 
     private Client client;
@@ -53,8 +53,8 @@ public class ClientGUI extends JFrame {
 	connectAction = new ConnectAction();
 	disconnectAction = new DisconnectAction();
 	exitAction = new ExitAction();
+	playAction = new PlayAction();
 
-	cardActionHandler = new CardActionHandler();
 	clientEventHandler = new ClientEventHandler();
 
 	JMenuItem connectMenuItem = new JMenuItem(connectAction);
@@ -75,10 +75,15 @@ public class ClientGUI extends JFrame {
 
 	handPanel = new CardPanel();
 	handPanel.setBackground(bgColor);
+	//Hand hand = new Game().getCurrentHand();
+	//handPanel.setCards(hand.getAll());
+
+	JButton playButton = new JButton(playAction);
 	
 	JPanel boardPanel = new JPanel();
 	boardPanel.setBackground(bgColor);
 	boardPanel.add(handPanel);
+	boardPanel.add(playButton);
 
 	add(boardPanel);
 
@@ -329,7 +334,21 @@ public class ClientGUI extends JFrame {
 	}
     }
 
+    private class PlayAction extends AbstractAction {
+	public PlayAction() {
+	    super("Play");
+	}
+
+	public void actionPerformed(ActionEvent event) {
+	    int card = handPanel.getSelected();
+	    System.out.println(card);
+	}
+    }
+
     private class CardPanel extends JPanel {
+
+	private ButtonGroup buttonGroup;
+
 	public CardPanel() {
 	    setMinimumSize(new Dimension(CardImageCache.IMAGE_WIDTH,
 					 CardImageCache.IMAGE_HEIGHT));
@@ -337,6 +356,7 @@ public class ClientGUI extends JFrame {
 	    setPreferredSize(new Dimension(CardImageCache.IMAGE_WIDTH * 7,
 					   CardImageCache.IMAGE_HEIGHT));
 	    */
+	    buttonGroup = new ButtonGroup();
 	}
 
 	public void setCards(Card[] cards) {
@@ -346,16 +366,20 @@ public class ClientGUI extends JFrame {
 		CardButton cardButton = 
 		    new CardButton(CardImageCache.getImageIcon(card));
 		cardButton.setActionCommand(i + "");
-		cardButton.addActionListener(cardActionHandler);
+		buttonGroup.add(cardButton);
 		add(cardButton);
 	    }
 	    revalidate();
 	}
 
-	private class CardButton extends JButton implements MouseListener {
+	public int getSelected() {
+	    return Integer.parseInt(buttonGroup
+				    .getSelection().getActionCommand());
+	}
+
+	private class CardButton extends JToggleButton {
 	    private Image image;
 	    private Dimension size;
-	    private boolean pressed;
 
 	    public CardButton(ImageIcon icon) {
 		super();
@@ -364,14 +388,12 @@ public class ClientGUI extends JFrame {
 		size = new Dimension(icon.getIconWidth(), 
 				     icon.getIconHeight() + 10);
 
-		pressed = false;
-		addMouseListener(this);
 	    }
 
 	    protected void paintComponent(Graphics g) {
 		g.setColor(getParent().getBackground());
 		g.fillRect(0, 0, size.width, size.height);
-		if (pressed)
+		if (isSelected())
 		    g.drawImage(image, 0, 0, this);
 		else
 		    g.drawImage(image, 0, 10, this);
@@ -382,22 +404,6 @@ public class ClientGUI extends JFrame {
 	    public Dimension getPreferredSize() {
 		return size;
 	    }
-
-	    public void mouseClicked(MouseEvent e) { }
-	    public void mouseEntered(MouseEvent e) { }
-	    public void mouseExited(MouseEvent e) { }
-	    public void mousePressed(MouseEvent e) {
-		pressed = true;
-	    }
-	    public void mouseReleased(MouseEvent e) {
-		pressed = false;
-	    }
-	}
-    }
-
-    private class CardActionHandler implements ActionListener {
-	public void actionPerformed(ActionEvent event) {
-	    System.out.println(event.getActionCommand());;
 	}
     }
 
