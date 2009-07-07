@@ -109,11 +109,13 @@ public class Server implements ServerThreadListener {
 		    client.send(Protocol.Username);
 		    client.sendObject(otherClient.getUsername());
 
-		    client.send(Protocol.Turn);
+		    client.send(Protocol.PlayOrder);
 		    client.sendObject(otherClient.getPosition());
 
 		    client.send(Protocol.CardCount);
 		    client.sendObject(game.getHand(otherClient.getPosition()).size());
+
+		    client.send(Protocol.UserEnd);
 		}
 	    }
 	    client.send(Protocol.NoUser);
@@ -177,11 +179,13 @@ public class Server implements ServerThreadListener {
 		    if (otherClient.getPosition() != client.getPosition()) {
 			client.send(Protocol.Player);
 			
-			client.send(Protocol.Turn);
+			client.send(Protocol.PlayOrder);
 			client.sendObject(otherClient.getPosition());
 			
 			client.send(Protocol.CardCount);
 			client.sendObject(game.getHand(otherClient.getPosition()).size());
+
+			client.send(Protocol.PlayerEnd);
 		    }
 		}
 		client.send(Protocol.NoPlayer);
@@ -202,11 +206,13 @@ public class Server implements ServerThreadListener {
 	    if (otherClient.getPosition() != client.getPosition()) {
 		client.send(Protocol.Player);
 
-		client.send(Protocol.Turn);
+		client.send(Protocol.PlayOrder);
 		client.sendObject(otherClient.getPosition());
 
 		client.send(Protocol.CardCount);
 		client.sendObject(game.getHand(otherClient.getPosition()).size());
+
+		client.send(Protocol.PlayerEnd);
 	    }
 	}
 	client.send(Protocol.NoPlayer);

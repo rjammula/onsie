@@ -191,7 +191,7 @@ class ServerThread extends Thread implements ServerThreadListener {
 	send(Protocol.Hand);
 	sendObject(hand);
 
-	send(Protocol.Turn);
+	send(Protocol.PlayOrder);
 	sendObject((Integer) position);
     }
 

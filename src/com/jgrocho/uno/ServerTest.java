@@ -24,10 +24,14 @@ public class ServerTest {
 
     public static void main(String[] args) throws InterruptedException {
 	int players = 4;
-	if (args.length == 1)
+	if (args.length >= 1)
 	    players = Integer.parseInt(args[0]);
 
-	Server server = new Server(players);
+	int port = Protocol.PORT;
+	if (args.length >= 2)
+	    port = Integer.parseInt(args[1]);
+
+	Server server = new Server(port, players);
 
 	System.out.println("Server waiting for connections");
 	server.listen();
