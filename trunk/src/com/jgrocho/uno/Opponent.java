@@ -22,9 +22,15 @@ package com.jgrocho.uno;
 
 public class Opponent implements Comparable<Opponent> {
 
-    private final String name;
-    private final int position;
+    private String name;
+    private int position;
     private int cards;
+
+    public Opponent() {
+	name = null;
+	position = -1;
+	cards = -1;
+    }
 
     public Opponent(String name, int position, int cards) {
 	this.name = name;
@@ -32,8 +38,23 @@ public class Opponent implements Comparable<Opponent> {
 	this.cards = cards;
     }
 
+    public boolean isCreated() {
+	if (name == null || position == -1 || cards == -1)
+	    return false;
+
+	return true;
+    }
+
+    public void setName(String name) {
+	this.name = name;
+    }
+
     public String getName() {
 	return name;
+    }
+
+    public void setPosition(int position) {
+	this.position = position;
     }
 
     public int getPosition() {

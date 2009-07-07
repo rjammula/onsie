@@ -36,6 +36,8 @@ public class ClientGUI extends JFrame {
     private Action playAction;
 
     private CardPanel handPanel;
+    private DiscardPanel discardPanel;
+    private JLabel statusLabel;
 
     private ClientEventHandler clientEventHandler;
 
@@ -44,16 +46,30 @@ public class ClientGUI extends JFrame {
     private int port;
 
     private String username;
-    private Hand hand;
-    private int turn;
+    private int playOrder;
+    private Opponents opponents;
+    private Card discard;
+
+    private volatile boolean turn;
+    private volatile boolean playing;
+    private volatile boolean starting;
 
     public ClientGUI() {
+	super("onsie");
+
+	turn = false;
+	playing = false;
+	starting = false;
+
 	frame = this;
+	opponents = new Opponents();
 
 	connectAction = new ConnectAction();
 	disconnectAction = new DisconnectAction();
 	exitAction = new ExitAction();
+
 	playAction = new PlayAction();
+	playAction.setEnabled(false);
 
 	clientEventHandler = new ClientEventHandler();
 
@@ -79,13 +95,22 @@ public class ClientGUI extends JFrame {
 	//handPanel.setCards(hand.getAll());
 
 	JButton playButton = new JButton(playAction);
+
+	discardPanel = new DiscardPanel();
+	discardPanel.setBackground(new Color(255, 0, 255));
 	
 	JPanel boardPanel = new JPanel();
 	boardPanel.setBackground(bgColor);
 	boardPanel.add(handPanel);
 	boardPanel.add(playButton);
+	boardPanel.add(discardPanel);
 
-	add(boardPanel);
+	statusLabel = new JLabel("Please Connect");
+
+	Container pane = getContentPane();
+
+	pane.add(boardPanel, BorderLayout.CENTER);
+	pane.add(statusLabel, BorderLayout.SOUTH);
 
 	setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 	//setDefaultLookAndFeelDecorated(true);
@@ -99,11 +124,13 @@ public class ClientGUI extends JFrame {
 	client.addClientEventListener(clientEventHandler);
 
 	if (! client.connect()) {
+	    statusLabel.setText("Could not connect");
 	    JOptionPane.showMessageDialog(frame, 
 					  "Could not connect to " + host,
 					  "Connection Error",
 					  JOptionPane.ERROR_MESSAGE);
 	} else {
+	    statusLabel.setText("Connected");
 	    new Thread() {
 		public void run() {
 		    setup();
@@ -121,13 +148,71 @@ public class ClientGUI extends JFrame {
 	client.receive(Protocol.Hand);
 	client.receiveObject();
 
-	client.receive(Protocol.Turn);
+	client.receive(Protocol.PlayOrder);
 	client.receiveObject();
+
+	client.receive(Protocol.Start);
+    }
+
+    private void startGame() {
+	while (starting) {
+	    receiveUser();
+	}
+    }
+
+    private void receiveUser() {
+	client.receiveUser();
+	if (starting) {
+	    client.receive(Protocol.Username);
+	    client.receiveObject();
+	    
+	    client.receive(Protocol.PlayOrder);
+	    client.receiveObject();
+	    
+	    client.receive(Protocol.CardCount);
+	    client.receiveObject();
+
+	    client.receive(Protocol.UserEnd);
+	}
+    }
+
+    private void playRound() {
+
+    }
+
+    private void setStarting(boolean starting) {
+	this.starting = starting;
+    }
+
+    private void setPlaying(boolean playing) {
+	this.playing = playing;
+    }
+
+    private void setEnd(boolean end) {
+	this.playing = ! end;
+    }
+
+    private void setTurn(boolean turn) {
+	this.turn = turn;
+	if (turn) {
+	    playAction.setEnabled(true);
+	} else {
+	    playAction.setEnabled(false);
+	}
     }
 
     private void setHand(Hand hand) {
-	this.hand = hand;
 	handPanel.setCards(hand.getAll());
+	repaint();
+    }
+
+    private void addCard(Card card) {
+	handPanel.addCard(card);
+	repaint();
+    }
+
+    private void setDiscard(Card card) {
+	discardPanel.setDiscard(card);
 	repaint();
     }
 
@@ -144,6 +229,7 @@ public class ClientGUI extends JFrame {
 			username = connectDialog.getUsername();
 			port = connectDialog.getPort();
 
+			statusLabel.setText("Connecting");
 			connect();
 		    }
 		});
@@ -163,7 +249,7 @@ public class ClientGUI extends JFrame {
 
 	    public ConnectDialog() {
 		super(frame, "Connect", true);
-
+		
 		TextFieldDocumentHandler documentHandler = 
 		    new TextFieldDocumentHandler();
 
@@ -305,7 +391,7 @@ public class ClientGUI extends JFrame {
 		public void changedUpdate(DocumentEvent documentEvent) {
 		}
 	    }
-
+	    
 	    private class WindowHandler extends WindowAdapter {
 		public void windowClosing(WindowEvent windowEvent) {
 		    setVisible(false);
@@ -347,14 +433,16 @@ public class ClientGUI extends JFrame {
 
     private class CardPanel extends JPanel {
 
+	private int nextIndex;
 	private ButtonGroup buttonGroup;
 
 	public CardPanel() {
+	    super();
 	    setMinimumSize(new Dimension(CardImageCache.IMAGE_WIDTH,
 					 CardImageCache.IMAGE_HEIGHT));
 	    /*
-	    setPreferredSize(new Dimension(CardImageCache.IMAGE_WIDTH * 7,
-					   CardImageCache.IMAGE_HEIGHT));
+	      setPreferredSize(new Dimension(CardImageCache.IMAGE_WIDTH * 7,
+	      CardImageCache.IMAGE_HEIGHT));
 	    */
 	    buttonGroup = new ButtonGroup();
 	}
@@ -366,9 +454,20 @@ public class ClientGUI extends JFrame {
 		CardButton cardButton = 
 		    new CardButton(CardImageCache.getImageIcon(card));
 		cardButton.setActionCommand(i + "");
+		nextIndex = i + 1;
 		buttonGroup.add(cardButton);
 		add(cardButton);
 	    }
+	    revalidate();
+	}
+
+	public void addCard(Card card) {
+	    CardButton cardButton = 
+		new CardButton(CardImageCache.getImageIcon(card));
+	    cardButton.setActionCommand(nextIndex++ + "");
+	    buttonGroup.add(cardButton);
+	    add(cardButton);
+
 	    revalidate();
 	}
 
@@ -407,26 +506,109 @@ public class ClientGUI extends JFrame {
 	}
     }
 
-    private class ClientEventHandler implements ClientEventListener {
-	private String awaiting;
+    private class DiscardPanel extends JPanel {
+	private JLabel discardLabel;
 
-	public void receiveCompleted(ClientEvent event) {
-	    awaiting = (String) event.getContent();
-	    System.out.println(awaiting);
-	}
-
-	public void receiveObjectCompleted(final ClientEvent event) {
-	    if (awaiting.equals(Protocol.Hand))
-		new Thread() {
-		    public void run() {
-			setHand((Hand) event.getContent());
-		    }
-		}.start();
-	    else if (awaiting.equals(Protocol.Turn))
-		turn = ((Integer) event.getContent()).intValue();
+	public void setDiscard(Card card) {
+	    discardLabel.setIcon(CardImageCache.getImageIcon(card));
 	}
     }
 
+    private class ClientEventHandler implements ClientEventListener {
+	private String awaiting;
+	
+	private boolean inUser;
+	private Opponent currentOpponent;
+	private int opponentPosition;
+	private int opponentCardCount;
+
+	public void receiveCompleted(ClientEvent event) {
+	    //System.out.println(event.getContent());
+	    String content = (String) event.getContent();
+	    awaiting = content;
+	    if (starting) {
+		if (content.equals(Protocol.User)) {
+		    inUser = true;
+		    currentOpponent = new Opponent();
+		} else if (content.equals(Protocol.UserEnd)) {
+		    inUser = false;
+		    if (currentOpponent.isCreated())
+			opponents.put(currentOpponent.getPosition(), 
+				      currentOpponent);
+		    else
+			System.out.println("incomplete user");
+		} else if (content.equals(Protocol.NoUser))
+		    setStarting(false);
+	    } else {
+		if (content.equals(Protocol.Start)) {
+		    setStarting(true);
+		    new Thread() {
+			public void run() {
+			    startGame();
+			}
+		    }.start();
+		} else if (content.equals(Protocol.Playing))
+		    setPlaying(true);
+		else if (content.equals(Protocol.End))
+		    setEnd(true);
+		else if (content.equals(Protocol.Turn))
+		    setTurn(true);
+		else if (content.equals(Protocol.OtherTurn))
+		    setTurn(false);
+		else if (content.equals(Protocol.Player))
+		    inUser = true;
+		else if (content.equals(Protocol.PlayerEnd)) {
+		    inUser = false;
+		    currentOpponent = opponents.get(opponentPosition);
+		    currentOpponent.setCards(opponentCardCount);
+		} else if (content.equals(Protocol.NoPlayer)) {}
+	    }
+	}
+	
+	public void receiveObjectCompleted(ClientEvent event) {
+	    //System.out.println(event.getContent());
+	    if (starting) {
+		if (inUser) {
+		    if (awaiting.equals(Protocol.Username))
+			currentOpponent.setName((String) event.getContent());
+		    else if (awaiting.equals(Protocol.PlayOrder))
+			currentOpponent
+			    .setPosition(((Integer) event.getContent()).intValue());
+		    else if (awaiting.equals(Protocol.CardCount))
+			currentOpponent
+			    .setCards(((Integer) event.getContent()).intValue());
+		} else if (playing) {
+		    if (inUser) {
+			if (awaiting.equals(Protocol.PlayOrder))
+			    opponentPosition = ((Integer) event.getContent())
+				.intValue();
+			else if (awaiting.equals(Protocol.CardCount))
+			    opponentCardCount = ((Integer) event.getContent())
+				.intValue();
+		    } else if (turn) {
+			if (awaiting.equals(Protocol.Draw))
+			    addCard((Card) event.getContent());
+			else if (awaiting.equals(Protocol.Hand)) {
+			    Hand hand = (Hand) event.getContent();
+			} else if (awaiting.equals(Protocol.Discard))
+			    discard = (Card) event.getContent();
+		    }
+		}
+	    } else {
+		if (awaiting.equals(Protocol.Hand)) {
+		    final Hand hand = (Hand) event.getContent();
+		    SwingUtilities.invokeLater(new Runnable() {
+			    public void run() {
+				setHand(hand);
+			    }
+			});
+		}
+		else if (awaiting.equals(Protocol.PlayOrder))
+		    playOrder = ((Integer) event.getContent()).intValue();
+	    }
+	}
+    }
+    
     public static void main(String[] args) {
 	javax.swing.SwingUtilities.invokeLater(new Runnable() {
 		public void run() {

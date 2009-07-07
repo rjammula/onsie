@@ -31,9 +31,6 @@ public class Client {
     private String host;
     private int port;
 
-    private Hand hand;
-    private int turn;
-
     private boolean connected;
     private Socket socket;
 
@@ -79,7 +76,7 @@ public class Client {
 	    try {
 		socket.close();
 	    } catch (IOException eSocket) {
-		//System.out.println("Error closing socket.");
+		//System.err.println("Error closing socket.");
 		//eSocket.printStackTrace();
 	    } finally {
 		connected = false;
@@ -94,10 +91,12 @@ public class Client {
 	    socketObjOut.writeObject(protocol);
 	    socketObjOut.flush();
 	} catch (IOException e) {
-	    System.out.println("Error sending protocol: " + protocol);
+	    System.err.println("Error sending protocol: " + protocol);
 	    e.printStackTrace();
 	    connected = false;
 	}
+
+	System.out.println("SEND:: " + protocol);
     }
 
     public void sendObject(Object object) {
@@ -105,10 +104,12 @@ public class Client {
 	    socketObjOut.writeObject(object);
 	    socketObjOut.flush();
 	} catch (IOException e) {
-	    System.out.println("Error sending object: " + object);
+	    System.err.println("Error sending object: " + object);
 	    e.printStackTrace();
 	    connected = false;
 	}
+
+	System.out.println("SEND:: " + object);
     }
 
     private String readSocketInput() {
@@ -121,7 +122,7 @@ public class Client {
 	    e.printStackTrace();
 	    connected = false;
 	} catch (IOException e) {
-	    System.out.println("Error reading input.");
+	    System.err.println("Error reading input.");
 	    e.printStackTrace();
 	    connected = false;
 	} catch (ClassNotFoundException e) {
@@ -134,8 +135,19 @@ public class Client {
 	if (line == null)
 	    connected = false;
 
+
+	System.out.println("RECEIVE:: " + line);
 	return line;
     }
+
+    /*
+    private String readSocketInput() {
+	String line = (String) readSocketObjInput();
+	if (line == null)
+	    connected = false;
+	return line;
+    }
+    */
 
     private Object readSocketObjInput() {
 	Object object = null;
@@ -156,6 +168,7 @@ public class Client {
 	    connected = false;
 	}
 
+	System.out.println("RECEIVE:: " + object);
 	return object;
     }
 
@@ -192,12 +205,16 @@ public class Client {
     }
 
     public void receiveOptions(String trueProtocol, String falseProtocol) {
-	while (true) {
+	boolean fired = false;
+	while (! fired) {
 	    String protocol = readSocketInput();
-	    if (protocol.equals(trueProtocol))
+	    if (protocol.equals(trueProtocol)) {
 		fireReceived(trueProtocol);
-	    else if (protocol.equals(falseProtocol))
+		fired = true;
+	    } else if (protocol.equals(falseProtocol)) {
 		fireReceived(falseProtocol);
+		fired = true;
+	    }
 	}
     }
 
@@ -227,14 +244,6 @@ public class Client {
 
     public void receiveUser() {
 	receiveOptions(Protocol.User, Protocol.NoUser);
-    }
-
-    public Hand getHand() {
-	return hand;
-    }
-
-    public int getTurn() {
-	return turn;
     }
 
     public void addClientEventListener(ClientEventListener listener) {
