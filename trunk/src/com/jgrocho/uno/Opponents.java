@@ -28,7 +28,6 @@ public class Opponents extends HashMap<Integer,Opponent> {
 	if (containsKey((Integer) position))
 	    return false;
 
-	System.out.println(position);
 	put((Integer) position, opponent);
 	return true;
     }
