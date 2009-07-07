@@ -48,18 +48,24 @@ public class ClientGUI extends JFrame {
     private String username;
     private int playOrder;
     private Opponents opponents;
+    private Hand hand;
     private Card discard;
+    private Card cardPlayed;
 
     private volatile boolean turn;
-    private volatile boolean playing;
     private volatile boolean starting;
+    private volatile boolean playing;
+    private volatile boolean playerIncoming;
+    private volatile boolean drawing;
 
     public ClientGUI() {
 	super("onsie");
 
 	turn = false;
-	playing = false;
 	starting = false;
+	playing = false;
+	playerIncoming = false;
+	drawing = false;
 
 	frame = this;
 	opponents = new Opponents();
@@ -158,6 +164,8 @@ public class ClientGUI extends JFrame {
 	while (starting) {
 	    receiveUser();
 	}
+
+	client.receivePlaying();
     }
 
     private void receiveUser() {
@@ -176,8 +184,51 @@ public class ClientGUI extends JFrame {
 	}
     }
 
-    private void playRound() {
+    private void receivePlayer() {
+	client.receivePlayer();
+    }
 
+    private void playRound() {
+	client.receiveTurn();
+
+	client.receivePlayer();
+	while (playerIncoming) {
+	    client.receive(Protocol.PlayOrder);
+	    client.receiveObject();
+
+	    client.receive(Protocol.CardCount);
+	    client.receiveObject();
+
+	    client.receivePlayer();
+	}
+
+	if (turn) {
+	    client.receiveDraw();
+	    while (drawing) {
+		client.receiveObject();
+		client.receiveDraw();
+	    }
+
+	    client.receive(Protocol.Hand);
+	    client.receiveObject();
+
+	    client.receive(Protocol.Discard);
+	    client.receiveObject();
+
+	    if (isWildDiscard())
+		client.receiveObject();
+
+	    client.receive(Protocol.RequestCard);
+	    playAction.setEnabled(true);
+	} else {
+
+	}
+    }
+
+    private void playCard(int card) {
+	client.send(Protocol.PlayCard);
+	client.sendObject((Integer) card);
+	playAction.setEnabled(false);
     }
 
     private void setStarting(boolean starting) {
@@ -194,14 +245,21 @@ public class ClientGUI extends JFrame {
 
     private void setTurn(boolean turn) {
 	this.turn = turn;
+	/*
 	if (turn) {
 	    playAction.setEnabled(true);
 	} else {
 	    playAction.setEnabled(false);
 	}
+	*/
+    }
+
+    private void setPlayerIncoming(boolean playerIncoming) {
+	this.playerIncoming = playerIncoming;
     }
 
     private void setHand(Hand hand) {
+	this.hand = hand;
 	handPanel.setCards(hand.getAll());
 	repaint();
     }
@@ -212,8 +270,17 @@ public class ClientGUI extends JFrame {
     }
 
     private void setDiscard(Card card) {
+	discard = card;
 	discardPanel.setDiscard(card);
 	repaint();
+    }
+
+    private boolean isWildDiscard() {
+	return discard.getColor() == Card.Color.NONE;
+    }
+
+    private boolean isWildCardPlayed() {
+	return cardPlayed.getColor() == Card.Color.NONE;
     }
 
     private class ConnectAction extends AbstractAction {
@@ -427,7 +494,7 @@ public class ClientGUI extends JFrame {
 
 	public void actionPerformed(ActionEvent event) {
 	    int card = handPanel.getSelected();
-	    System.out.println(card);
+	    playCard(card);
 	}
     }
 
@@ -509,8 +576,13 @@ public class ClientGUI extends JFrame {
     private class DiscardPanel extends JPanel {
 	private JLabel discardLabel;
 
+	public DiscardPanel() {
+	    discardLabel = new JLabel("");
+	}
+
 	public void setDiscard(Card card) {
 	    discardLabel.setIcon(CardImageCache.getImageIcon(card));
+	    revalidate();
 	}
     }
 
@@ -547,21 +619,28 @@ public class ClientGUI extends JFrame {
 			    startGame();
 			}
 		    }.start();
-		} else if (content.equals(Protocol.Playing))
+		} else if (content.equals(Protocol.Playing)) {
 		    setPlaying(true);
-		else if (content.equals(Protocol.End))
+		    new Thread() {
+			public void run() {
+			    playRound();
+			}
+		    }.start();
+		} else if (content.equals(Protocol.End))
 		    setEnd(true);
 		else if (content.equals(Protocol.Turn))
 		    setTurn(true);
 		else if (content.equals(Protocol.OtherTurn))
 		    setTurn(false);
-		else if (content.equals(Protocol.Player))
+		else if (content.equals(Protocol.Player)) {
 		    inUser = true;
-		else if (content.equals(Protocol.PlayerEnd)) {
+		    setPlayerIncoming(true);
+		} else if (content.equals(Protocol.PlayerEnd)) {
 		    inUser = false;
 		    currentOpponent = opponents.get(opponentPosition);
 		    currentOpponent.setCards(opponentCardCount);
-		} else if (content.equals(Protocol.NoPlayer)) {}
+		} else if (content.equals(Protocol.NoPlayer))
+		    setPlayerIncoming(false);
 	    }
 	}
 	
@@ -577,22 +656,25 @@ public class ClientGUI extends JFrame {
 		    else if (awaiting.equals(Protocol.CardCount))
 			currentOpponent
 			    .setCards(((Integer) event.getContent()).intValue());
-		} else if (playing) {
-		    if (inUser) {
-			if (awaiting.equals(Protocol.PlayOrder))
-			    opponentPosition = ((Integer) event.getContent())
-				.intValue();
-			else if (awaiting.equals(Protocol.CardCount))
-			    opponentCardCount = ((Integer) event.getContent())
-				.intValue();
-		    } else if (turn) {
-			if (awaiting.equals(Protocol.Draw))
-			    addCard((Card) event.getContent());
-			else if (awaiting.equals(Protocol.Hand)) {
-			    Hand hand = (Hand) event.getContent();
-			} else if (awaiting.equals(Protocol.Discard))
-			    discard = (Card) event.getContent();
-		    }
+		}
+	    } else if (playing) {
+		if (awaiting.equals(Protocol.Hand))
+		    hand = (Hand) event.getContent();
+		else if (awaiting.equals(Protocol.Discard))
+		    setDiscard((Card) event.getContent());
+		if (inUser) {
+		    if (awaiting.equals(Protocol.PlayOrder))
+			opponentPosition = ((Integer) event.getContent())
+			    .intValue();
+		    else if (awaiting.equals(Protocol.CardCount))
+			opponentCardCount = ((Integer) event.getContent())
+			    .intValue();
+		} else if (turn) {
+		    if (awaiting.equals(Protocol.Draw)) {
+			drawing = true;
+			addCard((Card) event.getContent());
+		    } else if (awaiting.equals(Protocol.NoDraw))
+			drawing = false;
 		}
 	    } else {
 		if (awaiting.equals(Protocol.Hand)) {
