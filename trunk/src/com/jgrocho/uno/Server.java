@@ -257,8 +257,10 @@ public class Server implements ServerThreadListener {
 	Card discard = game.topDiscard();
 	client.send(Protocol.Discard);
 	client.sendObject(discard);
-	if (discard.getColor() == Card.Color.NONE)
+	if (discard.getColor() == Card.Color.NONE) {
+	    client.send(Protocol.GetWild);
 	    client.sendObject(game.getWildColor());
+	}
 
 	requestCard();
     }
@@ -291,7 +293,7 @@ public class Server implements ServerThreadListener {
 
     private void requestWild() {
 	final ServerThread client = clients.get(game.getCurrentPlayerNumber());
-
+	
 	client.send(Protocol.SetWild);
 
 	new Thread() {
