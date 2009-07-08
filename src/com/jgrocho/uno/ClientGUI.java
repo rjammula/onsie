@@ -256,6 +256,7 @@ public class ClientGUI extends JFrame {
 		client.send(Protocol.SetWild);
 		client.sendObject(color);
 		client.receive(Protocol.Success);
+		discardPanel.resetWildColorChoice();
 	    }
 
 	    client.receive(Protocol.Success);
@@ -295,15 +296,25 @@ public class ClientGUI extends JFrame {
 	this.playerIncoming = playerIncoming;
     }
 
-    private void setHand(Hand hand) {
+    private void setHand(final Hand hand) {
 	this.hand = hand;
-	handPanel.setCards(hand.getAll());
-	repaint();
+	SwingUtilities.invokeLater(new Runnable() {
+		public void run() {
+		    handPanel.setCards(hand.getAll());
+		    repaint();
+		}
+	    });
     }
 
-    private void addCard(Card card) {
-	handPanel.addCard(card);
-	repaint();
+    private void addCard(final Card card) {
+	/*
+	SwingUtilities.invokeLater(new Runnable() {
+		public void run() {
+		    handPanel.addCard(card);
+		    repaint();
+		}
+	    });
+	*/
     }
 
     private void setDiscard(Card card) {
@@ -723,6 +734,10 @@ public class ClientGUI extends JFrame {
 	public Card.Color getWildColorChoice() {
 	    while (discardWildColor == Card.Color.NONE) {}
 	    return discardWildColor;
+	}
+
+	public void resetWildColorChoice() {
+	    discardWildColor = Card.Color.NONE;
 	}
 
 	private class WildColorButtonHandler implements ActionListener {
