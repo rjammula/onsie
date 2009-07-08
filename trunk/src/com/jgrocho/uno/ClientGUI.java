@@ -50,6 +50,7 @@ public class ClientGUI extends JFrame {
     private Opponents opponents;
     private Hand hand;
     private Card discard;
+    private Card.Color wildColor;
     private Card cardPlayed;
 
     private volatile boolean turn;
@@ -103,7 +104,7 @@ public class ClientGUI extends JFrame {
 	JButton playButton = new JButton(playAction);
 
 	discardPanel = new DiscardPanel();
-	discardPanel.setBackground(new Color(255, 0, 255));
+	discardPanel.setBackground(bgColor);
 	
 	JPanel boardPanel = new JPanel();
 	boardPanel.setBackground(bgColor);
@@ -168,6 +169,18 @@ public class ClientGUI extends JFrame {
 	client.receivePlaying();
     }
 
+    private void endGame() {
+	client.receiveWinner();
+    }
+
+    private void winner() {
+	System.out.println("You WIN!");
+    }
+
+    private void loser() {
+	System.out.println("You lose");
+    }
+
     private void receiveUser() {
 	client.receiveUser();
 	if (starting) {
@@ -215,20 +228,43 @@ public class ClientGUI extends JFrame {
 	    client.receive(Protocol.Discard);
 	    client.receiveObject();
 
-	    if (isWildDiscard())
+	    if (isWildDiscard()) {
+		client.receive(Protocol.GetWild);
 		client.receiveObject();
+	    }
 
 	    client.receive(Protocol.RequestCard);
 	    playAction.setEnabled(true);
 	} else {
+	    client.receive(Protocol.Discard);
+	    client.receiveObject();
 
+	    client.receivePlaying();
 	}
     }
 
     private void playCard(int card) {
-	client.send(Protocol.PlayCard);
-	client.sendObject((Integer) card);
-	playAction.setEnabled(false);
+	if (canPlayCard(card)) {
+	    client.send(Protocol.PlayCard);
+	    client.sendObject((Integer) card);
+	    handPanel.removeCard(card);
+	    playAction.setEnabled(false);
+
+	    if (isWildCard(card)) {
+		discardPanel.addColorButtons();
+		Card.Color color = discardPanel.getWildColorChoice();
+		client.send(Protocol.SetWild);
+		client.sendObject(color);
+		client.receive(Protocol.Success);
+	    }
+
+	    client.receive(Protocol.Success);
+	    client.receivePlaying();
+	} else {
+	    System.out.println("can't play that Card: " 
+			       + card + "  " + hand.get(card));
+	}
+	repaint();
     }
 
     private void setStarting(boolean starting) {
@@ -241,6 +277,7 @@ public class ClientGUI extends JFrame {
 
     private void setEnd(boolean end) {
 	this.playing = ! end;
+	endGame();
     }
 
     private void setTurn(boolean turn) {
@@ -275,12 +312,38 @@ public class ClientGUI extends JFrame {
 	repaint();
     }
 
+    private void setWildColor(Card.Color color) {
+	wildColor = color;
+	discardPanel.setWild(color);
+	repaint();
+    }
+
     private boolean isWildDiscard() {
 	return discard.getColor() == Card.Color.NONE;
     }
 
     private boolean isWildCardPlayed() {
 	return cardPlayed.getColor() == Card.Color.NONE;
+    }
+
+    private boolean canPlayCard(int cardIndex) {
+	Card card = hand.get(cardIndex);
+
+	if (card != null &&
+	    ((discard.getColor() == Card.Color.NONE && 
+	      card.getColor() == wildColor) ||
+	     card.getColor() == Card.Color.NONE ||
+	     card.getColor() == discard.getColor() ||
+	     card.getNumber() == discard.getNumber())) {
+
+	    return true;
+	}
+
+	return false;
+    }
+
+    private boolean isWildCard(int cardIndex) {
+	return hand.get(cardIndex).getColor() == Card.Color.NONE;
     }
 
     private class ConnectAction extends AbstractAction {
@@ -493,8 +556,12 @@ public class ClientGUI extends JFrame {
 	}
 
 	public void actionPerformed(ActionEvent event) {
-	    int card = handPanel.getSelected();
-	    playCard(card);
+	    final int card = handPanel.getSelected();
+	    new Thread() {
+		public void run() {
+		    playCard(card);
+		}
+	    }.start();
 	}
     }
 
@@ -538,6 +605,11 @@ public class ClientGUI extends JFrame {
 	    revalidate();
 	}
 
+	public void removeCard(int card) {
+	    remove(card);
+	    revalidate();
+	}
+
 	public int getSelected() {
 	    return Integer.parseInt(buttonGroup
 				    .getSelection().getActionCommand());
@@ -575,14 +647,99 @@ public class ClientGUI extends JFrame {
 
     private class DiscardPanel extends JPanel {
 	private JLabel discardLabel;
+	private JLabel wildLabel;
+
+	private JButton blueButton;
+	private JButton greenButton;
+	private JButton redButton;
+	private JButton yellowButton;
+
+	private volatile Card.Color discardWildColor = Card.Color.NONE;
 
 	public DiscardPanel() {
 	    discardLabel = new JLabel("");
+	    add(discardLabel);
+
+	    wildLabel = new JLabel("");
+	    wildLabel.setEnabled(false);
+
+	    WildColorButtonHandler wildColorButtonHandler = 
+		new WildColorButtonHandler();
+
+	    blueButton = new JButton("Blue");
+	    blueButton.setActionCommand("blue");
+	    blueButton.addActionListener(wildColorButtonHandler);
+
+	    greenButton = new JButton("Green");
+	    greenButton.setActionCommand("green");
+	    greenButton.addActionListener(wildColorButtonHandler);
+
+	    redButton = new JButton("Red");
+	    redButton.setActionCommand("red");
+	    redButton.addActionListener(wildColorButtonHandler);
+
+	    yellowButton = new JButton("Yellow");
+	    yellowButton.setActionCommand("yellow");
+	    yellowButton.addActionListener(wildColorButtonHandler);
 	}
 
 	public void setDiscard(Card card) {
+	    removeWild();
 	    discardLabel.setIcon(CardImageCache.getImageIcon(card));
 	    revalidate();
+	}
+
+	public void setWild(Card.Color color) {
+	    wildLabel.setText(color.toString());
+	    wildLabel.setEnabled(true);
+	    add(wildLabel);
+	    revalidate();
+	}
+
+	public void removeWild() {
+	    if (wildLabel.isEnabled()) {
+		remove(wildLabel);
+		wildLabel.setEnabled(false);
+		revalidate();
+	    }
+	}
+
+	public void addColorButtons() {
+	    add(blueButton);
+	    add(greenButton);
+	    add(redButton);
+	    add(yellowButton);
+	    revalidate();
+	}
+
+	public void removeColorButtons() {
+	    remove(blueButton);
+	    remove(greenButton);
+	    remove(redButton);
+	    remove(yellowButton);
+	    revalidate();
+	}
+
+	public Card.Color getWildColorChoice() {
+	    while (discardWildColor == Card.Color.NONE) {}
+	    return discardWildColor;
+	}
+
+	private class WildColorButtonHandler implements ActionListener {
+	    public void actionPerformed(ActionEvent event) {
+		String color = event.getActionCommand();
+
+		if (color.equals("blue"))
+		    discardWildColor = Card.Color.BLUE;
+		else if (color.equals("green"))
+		    discardWildColor = Card.Color.GREEN;
+		else if (color.equals("red"))
+		    discardWildColor = Card.Color.RED;
+		else if (color.equals("yellow"))
+		    discardWildColor = Card.Color.YELLOW;
+
+		removeColorButtons();
+	    }
 	}
     }
 
@@ -628,6 +785,10 @@ public class ClientGUI extends JFrame {
 		    }.start();
 		} else if (content.equals(Protocol.End))
 		    setEnd(true);
+		else if (content.equals(Protocol.Winner))
+		    winner();
+		else if (content.equals(Protocol.Loser))
+		    loser();
 		else if (content.equals(Protocol.Turn))
 		    setTurn(true);
 		else if (content.equals(Protocol.OtherTurn))
@@ -641,6 +802,10 @@ public class ClientGUI extends JFrame {
 		    currentOpponent.setCards(opponentCardCount);
 		} else if (content.equals(Protocol.NoPlayer))
 		    setPlayerIncoming(false);
+		else if (content.equals(Protocol.Draw))
+		    drawing = true;
+		else if (content.equals(Protocol.NoDraw))
+		    drawing = false;
 	    }
 	}
 	
@@ -658,10 +823,17 @@ public class ClientGUI extends JFrame {
 			    .setCards(((Integer) event.getContent()).intValue());
 		}
 	    } else if (playing) {
-		if (awaiting.equals(Protocol.Hand))
-		    hand = (Hand) event.getContent();
-		else if (awaiting.equals(Protocol.Discard))
+		if (awaiting.equals(Protocol.Hand)) {
+		    final Hand hand = (Hand) event.getContent();
+		    SwingUtilities.invokeLater(new Runnable() {
+			    public void run() {
+				setHand(hand);
+			    }
+			});
+		} else if (awaiting.equals(Protocol.Discard))
 		    setDiscard((Card) event.getContent());
+		else if (awaiting.equals(Protocol.GetWild))
+		    setWildColor((Card.Color) event.getContent());
 		if (inUser) {
 		    if (awaiting.equals(Protocol.PlayOrder))
 			opponentPosition = ((Integer) event.getContent())
@@ -670,11 +842,8 @@ public class ClientGUI extends JFrame {
 			opponentCardCount = ((Integer) event.getContent())
 			    .intValue();
 		} else if (turn) {
-		    if (awaiting.equals(Protocol.Draw)) {
-			drawing = true;
+		    if (awaiting.equals(Protocol.Draw))
 			addCard((Card) event.getContent());
-		    } else if (awaiting.equals(Protocol.NoDraw))
-			drawing = false;
 		}
 	    } else {
 		if (awaiting.equals(Protocol.Hand)) {
