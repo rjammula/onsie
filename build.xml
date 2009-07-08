@@ -52,6 +52,8 @@
     <delete dir="${server.build.dir}" />
   </target>
 
+  <target name="server-resources" />
+
   <target name="server-compile">
     <mkdir dir="${server.classes.dir}" />
     <javac srcdir="${src.dir}" destdir="${server.classes.dir}">
@@ -87,6 +89,14 @@
     <delete dir="${client.build.dir}" />
   </target>
 
+  <target name="client-resources">
+    <copy todir="${client.resource.dir}">
+      <fileset dir="${src.dir}">
+	<include name="**/mini/*/*.png" />
+      </fileset>
+    </copy>
+  </target>
+
   <target name="client-compile">
     <mkdir dir="${client.classes.dir}" />
     <javac srcdir="${src.dir}" destdir="${client.classes.dir}">
@@ -118,6 +128,8 @@
     <delete dir="${build.dir}" />
     <delete dir="${debug.dir}" />
   </target>
+
+  <target name="resources" depends="server-resources,client-resources" />
 
   <target name="debug">
     <mkdir dir="${debug.dir}" />
