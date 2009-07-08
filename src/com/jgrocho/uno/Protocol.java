@@ -39,6 +39,7 @@ public class Protocol {
     public static final String NoDraw      = "no draw";
     public static final String RequestCard = "request card";
     public static final String PlayCard    = "play card";
+    public static final String GetWild     = "get wild";
     public static final String SetWild     = "set wild";
     public static final String End         = "end";
     public static final String Winner      = "winner";
