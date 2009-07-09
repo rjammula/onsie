@@ -25,8 +25,8 @@ import javax.swing.ImageIcon;
 
 public class CardImageCache {
 
-    public static final int IMAGE_WIDTH = 85;
-    public static final int IMAGE_HEIGHT = 135;
+    public static final int IMAGE_WIDTH = 81;
+    public static final int IMAGE_HEIGHT = 131;
 
     private static ImageIcon[] ALL_ICONS = new ImageIcon[54];
 
