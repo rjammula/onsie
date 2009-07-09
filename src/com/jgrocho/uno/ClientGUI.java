@@ -98,8 +98,8 @@ public class ClientGUI extends JFrame {
 
 	handPanel = new CardPanel();
 	handPanel.setBackground(bgColor);
-	//Hand hand = new Game().getCurrentHand();
-	//handPanel.setCards(hand.getAll());
+	Hand hand = new Game().getCurrentHand();
+	handPanel.setCards(hand.getAll());
 
 	JButton playButton = new JButton(playAction);
 
@@ -578,42 +578,53 @@ public class ClientGUI extends JFrame {
 
     private class CardPanel extends JPanel {
 
-	private int nextIndex;
+	private static final int OVERLAP = 0;
+
+	private JLayeredPane layeredPane;
 	private ButtonGroup buttonGroup;
 
 	public CardPanel() {
 	    super();
-	    setMinimumSize(new Dimension(CardImageCache.IMAGE_WIDTH,
+	    /*setMinimumSize(new Dimension(CardImageCache.IMAGE_WIDTH,
 					 CardImageCache.IMAGE_HEIGHT));
-	    /*
-	      setPreferredSize(new Dimension(CardImageCache.IMAGE_WIDTH * 7,
-	      CardImageCache.IMAGE_HEIGHT));
+	    setPreferredSize(new Dimension(CardImageCache.IMAGE_WIDTH * 7,
+					     CardImageCache.IMAGE_HEIGHT));
 	    */
+	    layeredPane = new JLayeredPane();
+	    /*layeredPane.setMinimumSize(new Dimension(CardImageCache.IMAGE_WIDTH,
+						     CardImageCache.IMAGE_HEIGHT + 10));
+	    layeredPane.setPreferredSize(new Dimension(CardImageCache.IMAGE_WIDTH * 7,
+						       CardImageCache.IMAGE_HEIGHT + 10));
+	    */
+
 	    buttonGroup = new ButtonGroup();
+	    add(layeredPane);
 	}
 
 	public void setCards(Card[] cards) {
-	    removeAll();
-	    for (int i = 0; i < cards.length; ++i) {
+	    int i;
+	    layeredPane.removeAll();
+	    for (i = 0; i < cards.length; ++i) {
 		Card card = cards[i];
 		CardButton cardButton = 
 		    new CardButton(CardImageCache.getImageIcon(card));
 		cardButton.setActionCommand(i + "");
-		nextIndex = i + 1;
+		cardButton.setBounds(i * CardImageCache.IMAGE_WIDTH - i * OVERLAP,
+				     0,
+				     CardImageCache.IMAGE_WIDTH,
+				     CardImageCache.IMAGE_HEIGHT + 10);
+		
 		buttonGroup.add(cardButton);
-		add(cardButton);
+		layeredPane.add(cardButton, new Integer(i));
 	    }
-	    revalidate();
-	}
 
-	public void addCard(Card card) {
-	    CardButton cardButton = 
-		new CardButton(CardImageCache.getImageIcon(card));
-	    cardButton.setActionCommand(nextIndex++ + "");
-	    buttonGroup.add(cardButton);
-	    add(cardButton);
+	    layeredPane
+		.setPreferredSize(new Dimension(CardImageCache.IMAGE_WIDTH * i,
+						CardImageCache.IMAGE_HEIGHT + 10));
 
-	    revalidate();
+	    layeredPane.revalidate();
+	    System.out.println("done with setting cards");
+	    //revalidate();
 	}
 
 	public void removeCard(int card) {
@@ -636,12 +647,10 @@ public class ClientGUI extends JFrame {
 		image = icon.getImage();
 		size = new Dimension(icon.getIconWidth(), 
 				     icon.getIconHeight() + 10);
-
+		setOpaque(false);
 	    }
 
 	    protected void paintComponent(Graphics g) {
-		g.setColor(getParent().getBackground());
-		g.fillRect(0, 0, size.width, size.height);
 		if (isSelected())
 		    g.drawImage(image, 0, 0, this);
 		else
@@ -650,9 +659,10 @@ public class ClientGUI extends JFrame {
 
 	    protected void paintBorder(Graphics g) { }
 
-	    public Dimension getPreferredSize() {
+	    /*public Dimension getPreferredSize() {
 		return size;
 	    }
+	    */
 	}
     }
 
